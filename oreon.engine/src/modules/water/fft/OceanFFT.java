@@ -7,18 +7,19 @@ import static org.lwjgl.opengl.GL42.glBindImageTexture;
 import static org.lwjgl.opengl.GL42.glTexStorage2D;
 import static org.lwjgl.opengl.GL43.glDispatchCompute;
 import static org.lwjgl.opengl.GL11.glFinish;
-import modules.fastFourierTransform.FastFourierTransform;
+
 import engine.core.Input;
-import engine.shaders.computing.FFTButterflyShader;
-import engine.shaders.computing.FFTInversionShader;
-import engine.textures.Texture;
+import engine.shader.computing.FFTButterflyShader;
+import engine.shader.computing.FFTInversionShader;
+import engine.textures.Texture2D;
+import modules.gpgpu.fft.FastFourierTransform;
 
 
 public class OceanFFT extends FastFourierTransform{
 		
-	private Texture Dy;
-	private Texture Dx;
-	private Texture Dz;
+	private Texture2D Dy;
+	private Texture2D Dx;
+	private Texture2D Dz;
 		
 		public OceanFFT(int N)
 		{
@@ -31,25 +32,24 @@ public class OceanFFT extends FastFourierTransform{
 			setButterflyShader(FFTButterflyShader.getInstance());
 			setInversionShader(FFTInversionShader.getInstance());
 			
-			Dy = new Texture();
+			Dy = new Texture2D();
 			Dy.generate();
 			Dy.bind();
 			glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 			
-			Dx = new Texture();
+			Dx = new Texture2D();
 			Dx.generate();
 			Dx.bind();
 			glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 			
-			Dz = new Texture();
+			Dz = new Texture2D();
 			Dz.generate();
 			Dz.bind();
 			glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 			
-			setPingpongTexture(new Texture());
+			setPingpongTexture(new Texture2D());
 			getPingpongTexture().generate();
 			getPingpongTexture().bind();
-			getPingpongTexture().noFilter();
 			glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 		}
 		
@@ -57,8 +57,8 @@ public class OceanFFT extends FastFourierTransform{
 		{
 			getFourierComponents().update(t);
 			
-			// Dy-FFT
-			
+//			// Dy-FFT
+//			
 			pingpong = 0;
 			
 			getButterflyShader().bind();
@@ -169,15 +169,15 @@ public class OceanFFT extends FastFourierTransform{
 				t += t_delta;
 		}
 
-		public Texture getDy() {
+		public Texture2D getDy() {
 			return Dy;
 		}
 
-		public Texture getDx() {
+		public Texture2D getDx() {
 			return Dx;
 		}
 
-		public Texture getDz() {
+		public Texture2D getDz() {
 			return Dz;
 		}
 }

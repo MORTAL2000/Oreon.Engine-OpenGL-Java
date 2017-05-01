@@ -1,36 +1,38 @@
 package modules.terrain;
 
-import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-
-import javax.imageio.ImageIO;
+import java.util.Random;
 
 import modules.terrain.fractals.FractalMaps;
-import engine.core.Util;
 import engine.scenegraph.components.Material;
-import engine.shaders.Shader;
-import engine.textures.Texture;
+import engine.shader.Shader;
+import engine.textures.Texture2D;
+import engine.utils.Constants;
+import engine.utils.Util;
 
 public class TerrainConfiguration {
 
-	private BufferedImage heightmapSampler;
 	private float scaleY;
 	private float scaleXZ;
 	private int bezíer;
+	private int isWaterReflected;
+	private int waterReflectionShift;
 	private float sightRangeFactor;
 	private float texDetail;
 	private int tessellationFactor;
 	private float tessellationSlope;
 	private float tessellationShift;
 	private int detailRange;
-	private Texture heightmap;
-	private Texture normalmap;
-	private Texture ambientmap;
-	private Texture splatmap;
+	private Texture2D heightmap;
+	private Texture2D normalmap;
+	private Texture2D ambientmap;
+	private Texture2D splatmap;
 	private Material material0;
 	private Material material1;
 	private Material material2;
@@ -39,12 +41,68 @@ public class TerrainConfiguration {
 	
 	private int[] lod_range = new int[8];
 	private int[] lod_morphing_area = new int[8];
-
-	private float megabytes;
 	
 	private Shader shader;
 	private Shader gridShader;
 	private Shader shadowShader;
+	
+	public void saveToFile()
+	{
+		
+		File file = new File("./res/editor/terrain_settings.txt");
+		try {
+			BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+			writer.write("#textures");
+			writer.newLine();
+			writer.write("#terrain mesh settings");
+			writer.newLine();
+			writer.write("scaleXZ " + scaleXZ);
+			writer.newLine();
+			writer.write("scaleY " + scaleY);
+			writer.newLine();
+			writer.write("texDetail " + texDetail);
+			writer.newLine();
+			writer.write("tessellationFactor " + tessellationFactor);
+			writer.newLine();
+			writer.write("tessellationSlope " + tessellationSlope);
+			writer.newLine();
+			writer.write("tessellationShift " + tessellationShift);
+			writer.newLine();
+			writer.write("detailRange " + detailRange);
+			writer.newLine();
+			writer.write("sightRangeFactor " + sightRangeFactor);
+			writer.newLine();
+			writer.write("#lod ranges");
+			writer.newLine();
+			int i = 1;
+			for (int lod_range : lod_range){
+				writer.write("lod" + i + "_range " + lod_range);
+				writer.newLine();
+				i++;
+			}
+			i = 0;
+			for (FractalMaps fractal : fractals){
+				writer.write("fractal_stage" + i);
+				writer.newLine();
+				writer.write("amp " + fractal.getAmplitude());
+				writer.newLine();
+				writer.write("l " + fractal.getL());
+				writer.newLine();
+				writer.write("scaling " + fractal.getScaling());
+				writer.newLine();
+				writer.write("strength " + fractal.getStrength());
+				writer.newLine();
+				writer.write("normalStrength " + fractal.getNormalStrength());
+				writer.newLine();
+				writer.write("random " + fractal.getRandom());
+				writer.newLine();
+			}
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		System.out.println(file.canWrite());
+	}
 	
 	public void loadFile(String file)
 	{
@@ -68,47 +126,36 @@ public class TerrainConfiguration {
 					if(tokens[0].equals("scaleXZ")){
 						setScaleXZ(Float.valueOf(tokens[1]));
 					}
-					if(tokens[0].equals("heightmap")){
-						setHeightmap(new Texture(tokens[1]));
-						getHeightmap().bind();
-						getHeightmap().mipmap();
-						BufferedImage img = null;
-						try {
-						    img = ImageIO.read(new File(tokens[1]));
-						} catch (IOException e) {
-						}
-						setHeightmapSampler(img);
-					}
 					if(tokens[0].equals("normalmap")){
-						setNormalmap(new Texture(tokens[1]));
+						setNormalmap(new Texture2D(tokens[1]));
 						getNormalmap().bind();
-						getNormalmap().mipmap();
+						getNormalmap().trilinearFilter();
 					}
 					if(tokens[0].equals("ambientmap")){
-						setAmbientmap(new Texture(tokens[1]));
+						setAmbientmap(new Texture2D(tokens[1]));
 						getAmbientmap().bind();
-						getAmbientmap().mipmap();
+						getAmbientmap().trilinearFilter();
 					}
 					if(tokens[0].equals("splatmap")){
-						setSplatmap(new Texture(tokens[1]));
+						setSplatmap(new Texture2D(tokens[1]));
 						getSplatmap().bind();
-						getSplatmap().mipmap();
+						getSplatmap().trilinearFilter();
 					}
 					if(tokens[0].equals("material0_DIF")){
 						setMaterial0(new Material());
-						getMaterial0().setDiffusemap(new Texture(tokens[1]));
+						getMaterial0().setDiffusemap(new Texture2D(tokens[1]));
 						getMaterial0().getDiffusemap().bind();
-						getMaterial0().getDiffusemap().mipmap();
+						getMaterial0().getDiffusemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material0_NRM")){
-						getMaterial0().setNormalmap(new Texture(tokens[1]));
+						getMaterial0().setNormalmap(new Texture2D(tokens[1]));
 						getMaterial0().getNormalmap().bind();
-						getMaterial0().getNormalmap().mipmap();
+						getMaterial0().getNormalmap().trilinearFilter();
 					}
 					if(tokens[0].equals("material0_DISP")){
-						getMaterial0().setDisplacemap(new Texture(tokens[1]));
+						getMaterial0().setDisplacemap(new Texture2D(tokens[1]));
 						getMaterial0().getDisplacemap().bind();
-						getMaterial0().getDisplacemap().mipmap();
+						getMaterial0().getDisplacemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material0_displaceScale")){
 						getMaterial0().setDisplaceScale(Float.valueOf(tokens[1]));
@@ -121,19 +168,19 @@ public class TerrainConfiguration {
 					}
 					if(tokens[0].equals("material1_DIF")){
 						setMaterial1(new Material());
-						getMaterial1().setDiffusemap(new Texture(tokens[1]));
+						getMaterial1().setDiffusemap(new Texture2D(tokens[1]));
 						getMaterial1().getDiffusemap().bind();
-						getMaterial1().getDiffusemap().mipmap();
+						getMaterial1().getDiffusemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material1_NRM")){
-						getMaterial1().setNormalmap(new Texture(tokens[1]));
+						getMaterial1().setNormalmap(new Texture2D(tokens[1]));
 						getMaterial1().getNormalmap().bind();
-						getMaterial1().getNormalmap().mipmap();
+						getMaterial1().getNormalmap().trilinearFilter();
 					}
 					if(tokens[0].equals("material1_DISP")){
-						getMaterial1().setDisplacemap(new Texture(tokens[1]));
+						getMaterial1().setDisplacemap(new Texture2D(tokens[1]));
 						getMaterial1().getDisplacemap().bind();
-						getMaterial1().getDisplacemap().mipmap();
+						getMaterial1().getDisplacemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material1_displaceScale")){
 						getMaterial1().setDisplaceScale(Float.valueOf(tokens[1]));
@@ -146,19 +193,19 @@ public class TerrainConfiguration {
 					}
 					if(tokens[0].equals("material2_DIF")){
 						setMaterial2(new Material());
-						getMaterial2().setDiffusemap(new Texture(tokens[1]));
+						getMaterial2().setDiffusemap(new Texture2D(tokens[1]));
 						getMaterial2().getDiffusemap().bind();
-						getMaterial2().getDiffusemap().mipmap();
+						getMaterial2().getDiffusemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material2_NRM")){
-						getMaterial2().setNormalmap(new Texture(tokens[1]));
+						getMaterial2().setNormalmap(new Texture2D(tokens[1]));
 						getMaterial2().getNormalmap().bind();
-						getMaterial2().getNormalmap().mipmap();
+						getMaterial2().getNormalmap().trilinearFilter();
 					}
 					if(tokens[0].equals("material2_DISP")){
-						getMaterial2().setDisplacemap(new Texture(tokens[1]));
+						getMaterial2().setDisplacemap(new Texture2D(tokens[1]));
 						getMaterial2().getDisplacemap().bind();
-						getMaterial2().getDisplacemap().mipmap();
+						getMaterial2().getDisplacemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material2_displaceScale")){
 						getMaterial2().setDisplaceScale(Float.valueOf(tokens[1]));
@@ -171,19 +218,19 @@ public class TerrainConfiguration {
 					}
 					if(tokens[0].equals("material3_DIF")){
 						setMaterial3(new Material());
-						getMaterial3().setDiffusemap(new Texture(tokens[1]));
+						getMaterial3().setDiffusemap(new Texture2D(tokens[1]));
 						getMaterial3().getDiffusemap().bind();
-						getMaterial3().getDiffusemap().mipmap();
+						getMaterial3().getDiffusemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material3_NRM")){
-						getMaterial3().setNormalmap(new Texture(tokens[1]));
+						getMaterial3().setNormalmap(new Texture2D(tokens[1]));
 						getMaterial3().getNormalmap().bind();
-						getMaterial3().getNormalmap().mipmap();
+						getMaterial3().getNormalmap().trilinearFilter();
 					}
 					if(tokens[0].equals("material3_DISP")){
-						getMaterial3().setDisplacemap(new Texture(tokens[1]));
+						getMaterial3().setDisplacemap(new Texture2D(tokens[1]));
 						getMaterial3().getDisplacemap().bind();
-						getMaterial3().getDisplacemap().mipmap();
+						getMaterial3().getDisplacemap().trilinearFilter();
 					}
 					if(tokens[0].equals("material3_displaceScale")){
 						getMaterial3().setDisplaceScale(Float.valueOf(tokens[1]));
@@ -205,6 +252,9 @@ public class TerrainConfiguration {
 					}
 					if(tokens[0].equals("texDetail")){
 						setTexDetail(Float.valueOf(tokens[1]));
+					}
+					if(tokens[0].equals("sightRangeFactor")){
+						sightRangeFactor = Float.valueOf(tokens[1]);
 					}
 					if(tokens[0].equals("bezier")){
 						setBezíer(Integer.valueOf(tokens[1]));
@@ -282,22 +332,24 @@ public class TerrainConfiguration {
 		String line;
 		String[] tokens;
 		
-		int amp = 0;
-		int l = 0;
+		float amp = 0;
+		float l = 0;
 		int scaling = 0;
 		float strength = 0;
+		int random = 0;
+		int normalStrength = 0;
 		
 		try{
 			line = reader.readLine();
 			tokens = line.split(" ");
 			tokens = Util.removeEmptyStrings(tokens);
 			if(tokens[0].equals("amp"))
-				amp = Integer.valueOf(tokens[1]);
+				amp = Float.valueOf(tokens[1]);
 			line = reader.readLine();
 			tokens = line.split(" ");
 			tokens = Util.removeEmptyStrings(tokens);
 			if(tokens[0].equals("l"))
-				l = Integer.valueOf(tokens[1]);
+				l = Float.valueOf(tokens[1]);
 			line = reader.readLine();
 			tokens = line.split(" ");
 			tokens = Util.removeEmptyStrings(tokens);
@@ -308,14 +360,28 @@ public class TerrainConfiguration {
 			tokens = Util.removeEmptyStrings(tokens);
 			if(tokens[0].equals("strength"))
 				strength = Float.valueOf(tokens[1]);
+			line = reader.readLine();
+			tokens = line.split(" ");
+			tokens = Util.removeEmptyStrings(tokens);
+			if(tokens[0].equals("normalStrength"))
+				normalStrength = Integer.valueOf(tokens[1]);
+			line = reader.readLine();
+			tokens = line.split(" ");
+			tokens = Util.removeEmptyStrings(tokens);
+			if(tokens[0].equals("random")){
+				if (tokens.length == 2)
+					random = Integer.valueOf(tokens[1]);
+				else
+					random = new Random().nextInt(1000);
 			}
+		}
 		catch(Exception e)
 		{
 			e.printStackTrace();
 			System.exit(1);
 		}
-		
-		getFractals().add(new FractalMaps(512,amp,l,scaling,strength));
+		FractalMaps fractal = new FractalMaps(Constants.TERRAIN_FRACTALS_RESOLUTION,amp,l,scaling,strength,normalStrength,random);
+		getFractals().add(fractal);
 	}
 	
 	public void ReloadFractals(String file){
@@ -434,28 +500,28 @@ public class TerrainConfiguration {
 	public void setDetailRange(int detailRange) {
 		this.detailRange = detailRange;
 	}
-	public Texture getHeightmap() {
+	public Texture2D getHeightmap() {
 		return heightmap;
 	}
-	public void setHeightmap(Texture heightmap) {
+	public void setHeightmap(Texture2D heightmap) {
 		this.heightmap = heightmap;
 	}
-	public Texture getNormalmap() {
+	public Texture2D getNormalmap() {
 		return normalmap;
 	}
-	public void setNormalmap(Texture normalmap) {
+	public void setNormalmap(Texture2D normalmap) {
 		this.normalmap = normalmap;
 	}
-	public Texture getAmbientmap() {
+	public Texture2D getAmbientmap() {
 		return ambientmap;
 	}
-	public void setAmbientmap(Texture ambientmap) {
+	public void setAmbientmap(Texture2D ambientmap) {
 		this.ambientmap = ambientmap;
 	}
-	public Texture getSplatmap() {
+	public Texture2D getSplatmap() {
 		return splatmap;
 	}
-	public void setSplatmap(Texture splatmap) {
+	public void setSplatmap(Texture2D splatmap) {
 		this.splatmap = splatmap;
 	}
 	public Material getMaterial1() {
@@ -475,12 +541,6 @@ public class TerrainConfiguration {
 	}
 	public void setMaterial3(Material material3) {
 		this.material3 = material3;
-	}
-	public BufferedImage getHeightmapSampler() {
-		return heightmapSampler;
-	}
-	public void setHeightmapSampler(BufferedImage heightmapSampler) {
-		this.heightmapSampler = heightmapSampler;
 	}
 
 	public ArrayList<FractalMaps> getFractals() {
@@ -539,14 +599,6 @@ public class TerrainConfiguration {
 		return lod_morphing_area;
 	}
 
-	public float getMegabytes() {
-		return megabytes;
-	}
-
-	public void setMegabytes(float megabytes) {
-		this.megabytes = megabytes;
-	}
-
 	public Shader getShadowShader() {
 		return shadowShader;
 	}
@@ -573,5 +625,21 @@ public class TerrainConfiguration {
 
 	public void setMaterial0(Material material0) {
 		this.material0 = material0;
+	}
+
+	public int getIsWaterReflected() {
+		return isWaterReflected;
+	}
+
+	public void setIsWaterReflected(int isWaterReflected) {
+		this.isWaterReflected = isWaterReflected;
+	}
+
+	public int getWaterReflectionShift() {
+		return waterReflectionShift;
+	}
+
+	public void setWaterReflectionShift(int waterReflectionShift) {
+		this.waterReflectionShift = waterReflectionShift;
 	}
 }

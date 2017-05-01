@@ -4,18 +4,18 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
 import engine.configs.AlphaBlending;
 import engine.core.Input;
-import engine.core.Transform;
-import engine.geometrics.Mesh;
+import engine.geometry.Mesh;
 import engine.math.Matrix4f;
 import engine.math.Quaternion;
 import engine.math.Vec2f;
-import engine.shaders.gui.GuiShader;
-import engine.textures.Texture;
+import engine.scenegraph.components.Transform;
+import engine.shader.gui.GuiShader;
+import engine.textures.Texture2D;
 
 public abstract class Button extends GUIElement{
 
-	protected Texture buttonMap;
-	protected Texture buttonClickMap;
+	protected Texture2D buttonMap;
+	protected Texture2D buttonClickMap;
 	private boolean onClick = false;
 	private Vec2f[] pos;
 	
@@ -65,7 +65,7 @@ public abstract class Button extends GUIElement{
 	
 	public void update()
 	{
-		if(Input.getButtonDown(0))
+		if(Input.isButtonDown(0))
 		{
 			if(onClick())
 			{
@@ -73,7 +73,7 @@ public abstract class Button extends GUIElement{
 				onClickActionPerformed();
 			}
 		}
-		if(Input.getButtonreleased(0))
+		if(Input.isButtonreleased(0))
 			onClick = false;
 	}
 	

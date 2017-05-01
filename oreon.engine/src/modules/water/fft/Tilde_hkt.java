@@ -7,15 +7,16 @@ import static org.lwjgl.opengl.GL11.glFinish;
 import static org.lwjgl.opengl.GL15.GL_READ_WRITE;
 import static org.lwjgl.opengl.GL42.glBindImageTexture;
 import static org.lwjgl.opengl.GL43.glDispatchCompute;
-import modules.fastFourierTransform.FourierComponents;
-import engine.shaders.water.Tilde_hktShader;
-import engine.textures.Texture;
+
+import engine.shader.water.Tilde_hktShader;
+import engine.textures.Texture2D;
+import modules.gpgpu.fft.FourierComponents;
 
 public class Tilde_hkt extends FourierComponents{
 	
-	private Texture dyComponents;
-	private Texture dxComponents;
-	private Texture dzComponents;
+	private Texture2D dyComponents;
+	private Texture2D dxComponents;
+	private Texture2D dzComponents;
 
 	public Tilde_hkt(int N, int L) {
 		
@@ -23,19 +24,19 @@ public class Tilde_hkt extends FourierComponents{
 		setSpectrum(new Tilde_h0(N,L));
 		setShader(Tilde_hktShader.getInstance());
 		
-		dyComponents = new Texture();
+		dyComponents = new Texture2D();
 		dyComponents.generate();
 		dyComponents.bind();
 		dyComponents.noFilter();
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 		
-		dxComponents = new Texture();
+		dxComponents = new Texture2D();
 		dxComponents.generate();
 		dxComponents.bind();
 		dxComponents.noFilter();
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 		
-		dzComponents = new Texture();
+		dzComponents = new Texture2D();
 		dzComponents.generate();
 		dzComponents.bind();
 		dzComponents.noFilter();
@@ -46,12 +47,12 @@ public class Tilde_hkt extends FourierComponents{
 	public void update(float t) {
 		
 		getShader().bind();
-		getShader().updateUniforms(L,getN(),t);
+		getShader().updateUniforms(L,t);
 		glBindImageTexture(0, dyComponents.getId(), 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
 		glBindImageTexture(1, dxComponents.getId(), 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
 		glBindImageTexture(2, dzComponents.getId(), 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
 		glBindImageTexture(3, ((Tilde_h0)getSpectrum()).geth0k().getId(), 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
-		glBindImageTexture(4,  ((Tilde_h0)getSpectrum()).geth0kminus().getId(), 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
+		glBindImageTexture(4, ((Tilde_h0)getSpectrum()).geth0kminus().getId(), 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
 		glDispatchCompute(getN()/16,getN()/16,1);	
 		glFinish();
 	}
@@ -60,31 +61,14 @@ public class Tilde_hkt extends FourierComponents{
 		return L;
 	}
 
-	public void setL(int l) {
-		L = l;
-	}
-
-	public Texture getDyComponents() {
+	public Texture2D getDyComponents() {
 		return dyComponents;
 	}
 
-	public void setDyComponents(Texture dyComponents) {
-		this.dyComponents = dyComponents;
-	}
-
-	public Texture getDxComponents() {
+	public Texture2D getDxComponents() {
 		return dxComponents;
 	}
-
-	public void setDxComponents(Texture dxComponents) {
-		this.dxComponents = dxComponents;
-	}
-
-	public Texture getDzComponents() {
+	public Texture2D getDzComponents() {
 		return dzComponents;
-	}
-
-	public void setDzComponents(Texture dzComponents) {
-		this.dzComponents = dzComponents;
 	}
 }

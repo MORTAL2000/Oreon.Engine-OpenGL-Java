@@ -7,45 +7,38 @@ import static org.lwjgl.opengl.GL30.GL_RGBA32F;
 import static org.lwjgl.opengl.GL42.glBindImageTexture;
 import static org.lwjgl.opengl.GL42.glTexStorage2D;
 import static org.lwjgl.opengl.GL43.glDispatchCompute;
-
-import java.util.Random;
-
-import modules.fastFourierTransform.FastFourierTransform;
 import engine.math.Vec2f;
-import engine.shaders.computing.FFTButterflyShader;
-import engine.shaders.computing.FFTInversionShader;
-import engine.textures.Texture;
+import engine.shader.computing.FFTButterflyShader;
+import engine.shader.computing.FFTInversionShader;
+import engine.textures.Texture2D;
+import modules.gpgpu.fft.FastFourierTransform;
 
 public class FractalFFT extends FastFourierTransform{
 
-	private Texture heightmap;
+	private Texture2D heightmap;
 	
 	public FractalFFT(int N, int L, float A, float v, Vec2f w, float l) {
 			
 		super(N);
 
-		t = new Random().nextInt(1000);
-		FractalFourierComponents components = new FractalFourierComponents(N, L, A, v, w, l);
-		setFourierComponents(components);
+		setFourierComponents(new FractalFourierComponents(N, L, A, v, w, l));
 		setButterflyShader(FFTButterflyShader.getInstance());
 		setInversionShader(FFTInversionShader.getInstance());
-		
-		heightmap = new Texture();
+		heightmap = new Texture2D();
 		heightmap.generate();
 		heightmap.bind();
-		glTexStorage2D(GL_TEXTURE_2D, (int) (Math.log(N)/Math.log(2)), GL_RGBA32F, N, N);
+		heightmap.trilinearFilter();
+		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 		
-		setPingpongTexture(new Texture());
+		setPingpongTexture(new Texture2D());
 		getPingpongTexture().generate();
 		getPingpongTexture().bind();
-		getPingpongTexture().noFilter();
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, N, N);
 	}
 
 	public void render()
 	{
 		getFourierComponents().update(t);
-		
 		
 		pingpong = 0;
 		
@@ -81,15 +74,15 @@ public class FractalFFT extends FastFourierTransform{
 		glDispatchCompute(N/16,N/16,1);
 		glFinish();
 		heightmap.bind();
-		heightmap.mipmap();
+		heightmap.trilinearFilter();
 	}
 
-	public Texture getHeightmap() {
+	public Texture2D getHeightmap() {
 		return heightmap;
 	}
 
-	public void setHeightmap(Texture heightmap) {
-		this.heightmap = heightmap;
+	public float getT(){
+		return t;
 	}
 
 }

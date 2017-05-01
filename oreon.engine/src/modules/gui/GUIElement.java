@@ -1,10 +1,10 @@
 package modules.gui;
 
 import engine.configs.RenderConfig;
-import engine.core.Transform;
 import engine.math.Matrix4f;
 import engine.math.Vec2f;
-import engine.shaders.Shader;
+import engine.scenegraph.components.Transform;
+import engine.shader.Shader;
 
 public abstract class GUIElement {
 

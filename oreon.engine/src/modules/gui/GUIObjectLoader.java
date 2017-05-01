@@ -4,10 +4,10 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
 
-import engine.core.Util;
-import engine.geometrics.Mesh;
-import engine.geometrics.Vertex;
+import engine.geometry.Mesh;
+import engine.geometry.Vertex;
 import engine.math.Vec3f;
+import engine.utils.Util;
 
 public class GUIObjectLoader {
 
@@ -24,7 +24,7 @@ public class GUIObjectLoader {
 		
 			try
 			{
-				meshReader = new BufferedReader(new FileReader("./res/models/gui/" + fileName));
+				meshReader = new BufferedReader(new FileReader("./res/gui/" + fileName));
 				String line;
 				while((line = meshReader.readLine()) != null)
 				{

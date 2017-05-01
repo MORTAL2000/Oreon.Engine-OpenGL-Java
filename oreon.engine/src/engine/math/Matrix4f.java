@@ -1,6 +1,6 @@
 package engine.math;
 
-import engine.main.OpenGLDisplay;
+import engine.core.Window;
 
 
 public class Matrix4f {
@@ -46,8 +46,8 @@ public class Matrix4f {
 	{
 		//Z-Value 1: depth of orthographic OOB between 0 and -1
 		
-		m[0][0] = 2f/(float)OpenGLDisplay.getInstance().getLwjglWindow().getWidth();m[0][1] = 0; 								 								 m[0][2] = 0; m[0][3] = -1;
-		m[1][0] = 0;		 														m[1][1] = 2f/(float)OpenGLDisplay.getInstance().getLwjglWindow().getHeight();m[1][2] = 0; m[1][3] = -1;
+		m[0][0] = 2f/(float)Window.getInstance().getWidth();m[0][1] = 0; 								 								 m[0][2] = 0; m[0][3] = -1;
+		m[1][0] = 0;		 														m[1][1] = 2f/(float)Window.getInstance().getHeight();m[1][2] = 0; m[1][3] = -1;
 		m[2][0] = 0; 																m[2][1] = 0; 								 								 m[2][2] = 1; m[2][3] =  0;
 		m[3][0] = 0; 																m[3][1] = 0; 								 								 m[3][2] = 0; m[3][3] =  1;
 		
@@ -86,7 +86,7 @@ public class Matrix4f {
 		
 		ry.m[0][0] = (float)Math.cos(y); ry.m[0][1] = 0; 					 ry.m[0][2] = (float)Math.sin(y);  ry.m[0][3] = 0;
 		ry.m[1][0] = 0; 				 ry.m[1][1] = 1; 				 	 ry.m[1][2] = 0; 				   ry.m[1][3] = 0;
-		ry.m[2][0] = -(float)Math.sin(y) ;ry.m[2][1] = 0;					 ry.m[2][2] = (float)Math.cos(y);  ry.m[2][3] = 0;
+		ry.m[2][0] = -(float)Math.sin(y);ry.m[2][1] = 0;					 ry.m[2][2] = (float)Math.cos(y);  ry.m[2][3] = 0;
 		ry.m[3][0] = 0; 				 ry.m[3][1] = 0; 					 ry.m[3][2] = 0; 				   ry.m[3][3] = 1;
 	
 		m =  rz.mul(ry.mul(rx)).getM();
@@ -119,10 +119,10 @@ public class Matrix4f {
 		float tanFOV = (float) Math.tan(Math.toRadians(fovY/2));
 		float aspectRatio = width/height;
 		
-		m[0][0] = 1/(tanFOV*aspectRatio); m[0][1] = 0; 		 	   m[0][2] = 0; 							m[0][3] = 0;
-		m[1][0] = 0; 					  m[1][1] = 1/tanFOV; m[1][2] = 0; 									m[1][3] = 0;
-		m[2][0] = 0; 				 	  m[2][1] = 0; 		 	   m[2][2] = (-zNear-zFar)/(zNear-zFar);	m[2][3] = 2*zFar*zNear / (zNear-zFar);
-		m[3][0] = 0; 				 	  m[3][1] = 0; 		 	   m[3][2] = 1; 							m[3][3] = 1;
+		m[0][0] = 1/(tanFOV*aspectRatio); m[0][1] = 0; 		 	   m[0][2] = 0; 				m[0][3] = 0;
+		m[1][0] = 0; 					  m[1][1] = 1/tanFOV; 	   m[1][2] = 0; 			 	m[1][3] = 0;
+		m[2][0] = 0; 				 	  m[2][1] = 0; 		 	   m[2][2] = zFar/(zFar-zNear);	m[2][3] = zFar*zNear /(zFar-zNear);
+		m[3][0] = 0; 				 	  m[3][1] = 0; 		 	   m[3][2] = 1; 				m[3][3] = 1;
 	
 		return this;
 	}
@@ -229,6 +229,20 @@ public class Matrix4f {
 	    invM.set(3, 3, (get(2, 0) * s3 - get(2, 1) * s1 + get(2, 2) * s0) * invdet);
 		
 		return invM;
+	}
+	
+	public boolean equals(Matrix4f m){
+		if (this.m[0][0] == m.getM()[0][0] && this.m[0][1] == m.getM()[0][1] &&
+			this.m[0][2] == m.getM()[0][2] && this.m[0][3] == m.getM()[0][3] &&
+			this.m[1][0] == m.getM()[1][0] && this.m[1][1] == m.getM()[1][1] &&
+			this.m[1][2] == m.getM()[1][2] && this.m[1][3] == m.getM()[1][3] &&
+			this.m[2][0] == m.getM()[2][0] && this.m[2][1] == m.getM()[2][1] &&
+			this.m[2][2] == m.getM()[2][2] && this.m[2][3] == m.getM()[2][3] &&
+			this.m[3][0] == m.getM()[3][0] && this.m[3][1] == m.getM()[3][1] &&
+			this.m[3][2] == m.getM()[3][2] && this.m[3][3] == m.getM()[3][3])
+				return true;
+		else
+			return false;	
 	}
 	
 	public void set(int x, int y, float value)

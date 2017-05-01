@@ -1,19 +1,18 @@
 package engine.core;
 
 import java.nio.FloatBuffer;
-
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 
-import engine.buffers.BufferAllocation;
 import engine.buffers.UBO;
-import engine.main.CoreEngine;
-import engine.main.OpenGLDisplay;
 import engine.math.Matrix4f;
 import engine.math.Quaternion;
 import engine.math.Vec2f;
 import engine.math.Vec3f;
+import engine.utils.BufferAllocation;
+import engine.utils.Constants;
+import engine.utils.Util;
 
 public class Camera {
 	
@@ -22,21 +21,25 @@ public class Camera {
 	private final Vec3f yAxis = new Vec3f(0,1,0);
 	
 	private Vec3f position;
+	private Vec3f previousPosition;
 	private Vec3f forward;
+	private Vec3f previousForward;
 	private Vec3f up;
 	private int scaleFactor;
+	private float movAmt;
+	private float rotAmt;
 	private Matrix4f viewMatrix;
 	private Matrix4f projectionMatrix;
 	private Matrix4f viewProjectionMatrix;
 	private Matrix4f previousViewMatrix;
 	private Matrix4f previousViewProjectionMatrix;
+	private boolean cameraMoved;
+	private boolean cameraRotated;
 	
 	private UBO ubo;
 	private FloatBuffer floatBuffer;
 	private final int bufferSize = Float.BYTES * (4+16+(6*4));
 	
-	private float zNear;
-	private float zFar;
 	private float width;
 	private float height;
 	private float fovY;
@@ -52,7 +55,7 @@ public class Camera {
 	private float rotXamt;
 	private float rotXcounter;
 	private boolean rotXInitiated = false;
-	private float mouseSensitivity = 0.2f;
+	private float mouseSensitivity = 1f;
 	
 	private Quaternion[] frustumPlanes = new Quaternion[6];
 	private Vec3f[] frustumCorners = new Vec3f[8];
@@ -68,15 +71,15 @@ public class Camera {
 	
 	protected Camera()
 	{
-		this(new Vec3f(0,100,0), new Vec3f(0,-1,1), new Vec3f(0,1,1));
-		this.setProjection(70, OpenGLDisplay.getInstance().getLwjglWindow().getWidth(), OpenGLDisplay.getInstance().getLwjglWindow().getHeight(), Constants.ZNEAR, Constants.ZFAR);
-		this.projectionMatrix = new Matrix4f().PerspectiveProjection(fovY, width, height, zNear, zFar);
-		this.setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
+		this(new Vec3f(1060,20,-830), new Vec3f(0,0,1), new Vec3f(0,1,0));
+		setProjection(70, Window.getInstance().getWidth(), Window.getInstance().getHeight());
+		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
-		this.initfrustumPlanes();
-		this.viewProjectionMatrix = new Matrix4f().Zero();
-		this.previousViewProjectionMatrix = new Matrix4f().Zero();
-		this.ubo = new UBO();
+		initfrustumPlanes();
+		previousViewMatrix = new Matrix4f().Zero();
+		viewProjectionMatrix = new Matrix4f().Zero();
+		previousViewProjectionMatrix = new Matrix4f().Zero();
+		ubo = new UBO();
 		ubo.setBinding_point_index(Constants.CameraUniformBlockBinding);
 		ubo.bindBufferBase();
 		ubo.allocate(bufferSize);
@@ -85,29 +88,33 @@ public class Camera {
 	
 	private Camera(Vec3f position, Vec3f forward, Vec3f up)
 	{
-		this.setPosition(position);
-		this.setForward(forward);
-		this.setUp(up);
-		this.setScaleFactor(100);
+		setPosition(position);
+		setForward(forward);
+		setUp(up);
+		setScaleFactor(1);
 		up.normalize();
 		forward.normalize();
 	}
 	
 	public void update()
 	{
-		this.setScaleFactor(Math.max(1, scaleFactor + Mouse.getDWheel()/10));
+		previousPosition = new Vec3f(position);
+		previousForward = new Vec3f(forward);
+		cameraMoved = false;
+		cameraRotated = false;
 		
-		float movAmt = scaleFactor *  CoreEngine.getFrameTime();
-		float rotAmt = scaleFactor * CoreEngine.getFrameTime(); 
+		setScaleFactor(Math.max(1, scaleFactor + Mouse.getDWheel()/10));
+		movAmt = scaleFactor * 0.001f;
+		rotAmt = 4 * scaleFactor * 0.001f; 
 		
-		if(Input.getButtonDown(2))
+		if(Input.isButtonDown(2))
 		{
 			Input.setCursor(false);
 			lockedMousePosition = Input.getMousePos();
 			mouselocked = true;
 		}
 		
-		if(Input.getButtonreleased(2))
+		if(Input.isButtonreleased(2))
 		{
 			Input.setCursor(true);
 			mouselocked = false;
@@ -142,13 +149,13 @@ public class Camera {
 			// y-axxis rotation
 			
 			if (dy != 0){
-				rotYstride = Math.abs(dy * CoreEngine.getFrameTime() * 10);
+				rotYstride = Math.abs(dy * 0.01f);
 				rotYamt = dy;
 				rotYcounter = 0;
 				rotYInitiated = true;
 			}
 			
-			if (rotYInitiated){
+			if (rotYInitiated ){
 				
 				// up-rotation
 				if (rotYamt < 0){
@@ -170,7 +177,7 @@ public class Camera {
 			
 			// x-axxis rotation
 			if (dx != 0){
-				rotXstride = Math.abs(dx * CoreEngine.getFrameTime() * 10);
+				rotXstride = Math.abs(dx * 0.01f);
 				rotXamt = dx;
 				rotXcounter = 0;
 				rotXInitiated = true;
@@ -199,6 +206,14 @@ public class Camera {
 		
 		if(mouselocked) Input.setMousePosition(lockedMousePosition);
 		
+		if (!position.equals(previousPosition)){
+			cameraMoved = true;	
+		}
+		
+		if (!forward.equals(previousForward)){
+			cameraRotated = true;
+		}
+		
 		setPreviousViewMatrix(viewMatrix);
 		setPreviousViewProjectionMatrix(viewProjectionMatrix);
 		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
@@ -218,6 +233,7 @@ public class Camera {
 		floatBuffer.clear();
 		floatBuffer.put(BufferAllocation.createFlippedBuffer(this.position));
 		floatBuffer.put(0);
+		floatBuffer.put(BufferAllocation.createFlippedBuffer(viewMatrix));
 		floatBuffer.put(BufferAllocation.createFlippedBuffer(viewProjectionMatrix));
 		floatBuffer.put(BufferAllocation.createFlippedBuffer(frustumPlanes));
 		ubo.updateData(floatBuffer, bufferSize);
@@ -330,13 +346,13 @@ public class Camera {
 		this.projectionMatrix = projectionMatrix;
 	}
 	
-	public  void setProjection(float fovY, float width, float height, float zNear, float zFar)
+	public  void setProjection(float fovY, float width, float height)
 	{
 		this.fovY = fovY;
 		this.width = width;
 		this.height = height;
-		this.zNear = zNear;
-		this.zFar = zFar;
+		
+		this.projectionMatrix = new Matrix4f().PerspectiveProjection(fovY, width, height, Constants.ZNEAR, Constants.ZFAR);
 	}
 
 	public Matrix4f getViewMatrix() {
@@ -414,5 +430,13 @@ public class Camera {
 
 	public Vec3f[] getFrustumCorners() {
 		return frustumCorners;
+	}
+
+	public boolean isCameraMoved() {
+		return cameraMoved;
+	}
+
+	public boolean isCameraRotated() {
+		return cameraRotated;
 	}
 }

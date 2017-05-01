@@ -5,27 +5,27 @@ import java.io.File;
 import java.io.FileReader;
 import java.nio.ByteBuffer;
 
-import modules.gpucomputing.NormalMapRenderer;
+import modules.gpgpu.NormalMapRenderer;
 import modules.terrain.Terrain;
 import modules.water.fft.OceanFFT;
 import engine.buffers.Framebuffer;
 import engine.buffers.PatchVAO;
 import engine.configs.Default;
 import engine.configs.RenderConfig;
-import engine.core.Constants;
 import engine.core.Input;
-import engine.core.Util;
-import engine.main.OpenGLDisplay;
-import engine.main.RenderingEngine;
+import engine.core.Window;
+import engine.core.RenderingEngine;
 import engine.math.Quaternion;
 import engine.math.Vec2f;
 import engine.scenegraph.GameObject;
 import engine.scenegraph.Scenegraph;
 import engine.scenegraph.components.RenderInfo;
 import engine.scenegraph.components.Renderer;
-import engine.shaders.water.OceanBRDF;
-import engine.shaders.water.OceanGrid;
-import engine.textures.Texture;
+import engine.shader.water.OceanBRDFShader;
+import engine.textures.Texture2D;
+import engine.utils.Constants;
+import engine.utils.Util;
+
 import static org.lwjgl.opengl.GL11.glTexImage2D;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11.GL_RGBA;
@@ -38,13 +38,16 @@ import static org.lwjgl.opengl.GL11.glFrontFace;
 import static org.lwjgl.opengl.GL11.glTexParameteri;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER;
+import static org.lwjgl.opengl.GL11.glDisable;
 import static org.lwjgl.opengl.GL11.GL_LINEAR;
 import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE6;
 
 public class Water extends GameObject{
 	
 	private Quaternion clipplane;
-	private float clip_offset = 10;
+	private float clip_offset;
 	private float distortionOffset;
 	private float motionOffset;
 	private float motion;
@@ -60,9 +63,10 @@ public class Water extends GameObject{
 	private float emission;
 	private float kReflection;
 	private float kRefraction;	
-	private Texture dudv;
-	private Texture reflectionTexture;
-	private Texture refractionTexture;
+	private Texture2D dudv;
+	private Texture2D reflectionTexture;
+	private Texture2D refractionTexture;
+	private Texture2D refractionDepthTexture;
 	private Framebuffer reflectionFBO;
 	private Framebuffer refractionFBO;
 	
@@ -72,15 +76,15 @@ public class Water extends GameObject{
 	private Scenegraph scenegraph;
 	
 	public Water(int patches, int fftResolution)
-	{
+	{		
 		PatchVAO meshBuffer = new PatchVAO();
 		meshBuffer.addData(generatePatch2D4x4(patches),16);
-		setRenderInfo(new RenderInfo( new Default(), OceanBRDF.getInstance()));
-		Renderer renderer = new Renderer(OceanBRDF.getInstance(), meshBuffer);
+		setRenderInfo(new RenderInfo(new Default(), OceanBRDFShader.getInstance()));
+		Renderer renderer = new Renderer(OceanBRDFShader.getInstance(), meshBuffer);
 		
-		dudv = new Texture("./res/textures/water/dudv/dudv1.jpg");
+		dudv = new Texture2D("./res/textures/water/dudv/dudv1.jpg");
 		dudv.bind();
-		dudv.mipmap();
+		dudv.trilinearFilter();
 		
 		addComponent("Renderer", renderer);
 
@@ -88,33 +92,35 @@ public class Water extends GameObject{
 		fft.init();
 		normalmapRenderer = new NormalMapRenderer(fftResolution);
 		
-		reflectionTexture = new Texture();
+		reflectionTexture = new Texture2D();
 		reflectionTexture.generate();
 		reflectionTexture.bind();
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, OpenGLDisplay.getInstance().getLwjglWindow().getWidth()/2, OpenGLDisplay.getInstance().getLwjglWindow().getHeight()/2, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Window.getInstance().getWidth()/2, Window.getInstance().getHeight()/2, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		
 		reflectionFBO = new Framebuffer();
 		reflectionFBO.bind();
 		reflectionFBO.setDrawBuffer(0);
-		reflectionFBO.colorTextureAttachment(reflectionTexture.getId(), 0);
+		reflectionFBO.createColorTextureAttachment(reflectionTexture.getId(), 0);
+		reflectionFBO.createDepthbufferAttachment(Window.getInstance().getWidth()/2, Window.getInstance().getHeight()/2);
 		reflectionFBO.checkStatus();
 		reflectionFBO.unbind();
 		
-		refractionTexture = new Texture();
+		refractionTexture = new Texture2D();
 		refractionTexture.generate();
 		refractionTexture.bind();
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, OpenGLDisplay.getInstance().getLwjglWindow().getWidth()/2, OpenGLDisplay.getInstance().getLwjglWindow().getHeight()/2, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Window.getInstance().getWidth()/2, Window.getInstance().getHeight()/2, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	
 		refractionFBO = new Framebuffer();
 		refractionFBO.bind();
 		refractionFBO.setDrawBuffer(0);
-		refractionFBO.colorTextureAttachment(refractionTexture.getId(), 0);
+		refractionFBO.createColorTextureAttachment(refractionTexture.getId(), 0);
+		refractionFBO.createDepthbufferAttachment(Window.getInstance().getWidth()/2, Window.getInstance().getHeight()/2);
 		refractionFBO.checkStatus();
-		refractionFBO.unbind();
+		refractionFBO.unbind();		
 	}
 	
 	public void loadSettingsFile(String file)
@@ -189,15 +195,15 @@ public class Water extends GameObject{
 	
 	public void update()
 	{
-		if (RenderingEngine.isGrid())
-		{
-			((Renderer) getComponents().get("Renderer")).setShader(OceanGrid.getInstance());
-		}
-		
-		else if (!RenderingEngine.isGrid())
-		{
-			((Renderer) getComponents().get("Renderer")).setShader(OceanBRDF.getInstance());
-		}
+//		if (RenderingEngine.isGrid())
+//		{
+//			getRenderInfo().setShader(OceanGridShader.getInstance());
+//		}
+//		else if (!RenderingEngine.isGrid())
+//		{
+//			getRenderInfo().setShader(OceanBRDFShader.getInstance());
+//		}
+//		getComponents().get("Renderer").setShader(getRenderInfo().getShader());
 	}
 	
 	public static Vec2f[] generatePatch2D4x4(int patches)
@@ -245,12 +251,12 @@ public class Water extends GameObject{
 	
 	public void render()
 	{
-	
+		glEnable(GL_CLIP_DISTANCE6);
+		
 		if (!Input.isPause()){
 			distortion += getDistortionOffset();
 			motion += getMotionOffset();
 		}
-		clipplane.setW(getTransform().getTranslation().getY() + clip_offset);
 		
 		Scenegraph scenegraph = ((Scenegraph) getParent());
 		
@@ -260,21 +266,16 @@ public class Water extends GameObject{
 			
 		// TODO mirror transformation
 		
-		scenegraph.getRoot().getTransform().setScaling(1,-1,1);
-		scenegraph.getRoot().getTransform().getTranslation().setY(RenderingEngine.getClipplane().getW() - 
-				(scenegraph.getTransform().getTranslation().getY() - RenderingEngine.getClipplane().getW()));
-		
-		// prevent reflesction distortion overlap
-//		skySphere.getTransform().setScaling(1.1f,-1,1.1f);
-//		skySphere.getTransform().getTranslation().setY(RenderingEngine.getClipplane().getW() - 
-//			(skySphere.getTransform().getTranslation().getY() - RenderingEngine.getClipplane().getW()));
+		scenegraph.getTransform().setScaling(1,-1,1);
+		scenegraph.getTransform().getTranslation().setY(50);
+//		scenegraph.getTransform().getTranslation().setY(RenderingEngine.getClipplane().getW() - 
+//				(scenegraph.getTransform().getTranslation().getY() - RenderingEngine.getClipplane().getW()));
 			
 		synchronized(Terrain.getLock()){
-//			if (terrain != null){
-//				terrain.getTerrainConfiguration().setScaleY(terrain.getTerrainConfiguration().getScaleY() * -1f);
-//				terrain.getTransform().getLocalTranslation().setY(RenderingEngine.getClipplane().getW() - 
-//					(terrain.getTransform().getLocalTranslation().getY() - RenderingEngine.getClipplane().getW()));
-//			}
+			
+			Terrain terrain = (Terrain) scenegraph.getTerrain();
+			terrain.getTerrainConfiguration().setScaleY(terrain.getTerrainConfiguration().getScaleY() * -1f);
+			terrain.getTerrainConfiguration().setWaterReflectionShift((int) (getClipplane().getW() * 2f));
 			
 			// TODO prevent update terrain Quadtree in this update call;
 			
@@ -282,7 +283,8 @@ public class Water extends GameObject{
 			
 			//render reflection to texture
 
-			glViewport(0,0,OpenGLDisplay.getInstance().getLwjglWindow().getWidth()/2, OpenGLDisplay.getInstance().getLwjglWindow().getHeight()/2);
+			glViewport(0,0,Window.getInstance().getWidth()/2, Window.getInstance().getHeight()/2);
+			RenderingEngine.setReflection(true);
 			
 			this.getReflectionFBO().bind();
 			RenderConfig.clearScreenDeepOceanReflection();
@@ -295,42 +297,40 @@ public class Water extends GameObject{
 			
 			// antimirror scene to clipplane
 		
-			scenegraph.getRoot().getTransform().setScaling(1,1,1);
-			scenegraph.getRoot().getTransform().getTranslation().setY(RenderingEngine.getClipplane().getW() - 
-					(scenegraph.getTransform().getTranslation().getY() - RenderingEngine.getClipplane().getW()));
-//			if (terrain != null){
-//				terrain.getTerrainConfiguration().setScaleY(terrain.getTerrainConfiguration().getScaleY()/ -1f);
-//				terrain.getTransform().getLocalTranslation().setY(RenderingEngine.getClipplane().getW() + 
-//					(RenderingEngine.getClipplane().getW() - terrain.getTransform().getLocalTranslation().getY()));
-//			}
+			scenegraph.getTransform().setScaling(1,1,1);
+			scenegraph.getTransform().getTranslation().setY(0);
+//			scenegraph.getTransform().getTranslation().setY(RenderingEngine.getClipplane().getW() - 
+//					(scenegraph.getTransform().getTranslation().getY() - RenderingEngine.getClipplane().getW()));
+
+			terrain.getTerrainConfiguration().setScaleY(terrain.getTerrainConfiguration().getScaleY() / -1f);
+			terrain.getTerrainConfiguration().setWaterReflectionShift(0);
+
 			scenegraph.update();
 			
 			// render to refraction texture
+			RenderingEngine.setReflection(false);
 			
 			this.getRefractionFBO().bind();
 			RenderConfig.clearScreenDeepOceanRefraction();
 			scenegraph.getRoot().render();
-//			if (terrain != null){
-//				terrain.render();
-//			}
+			scenegraph.getTerrain().render();
+			
 			glFinish(); //important, prevent conflicts with following compute shaders
 			this.getRefractionFBO().unbind();
 		}
-			
+		
+		glDisable(GL_CLIP_DISTANCE6);
 		RenderingEngine.setClipplane(Constants.PLANE0);	
 	
-		glViewport(0,0,OpenGLDisplay.getInstance().getLwjglWindow().getWidth(), OpenGLDisplay.getInstance().getLwjglWindow().getHeight());
+		glViewport(0,0,Window.getInstance().getWidth(), Window.getInstance().getHeight());
 		
-		OpenGLDisplay.getInstance().getFBO().bind();
-		RenderConfig.clearScreen();
 		fft.render();
 		normalmapRenderer.render(fft.getDy());
+		
+		Window.getInstance().getMultisampledFbo().bind();
 		getComponents().get("Renderer").render();
-		
-		scenegraph.getRoot().render();
-		
 		glFinish(); //important, prevent conflicts with following compute shaders
-		OpenGLDisplay.getInstance().getFBO().unbind();
+		Window.getInstance().getMultisampledFbo().unbind();
 	}
 
 	public Quaternion getClipplane() {
@@ -465,19 +465,19 @@ public class Water extends GameObject{
 		this.refractionFBO = refractionFBO;
 	}
 
-	public Texture getReflectionTexture() {
+	public Texture2D getReflectionTexture() {
 		return reflectionTexture;
 	}
 
-	public void setReflectionTexture(Texture reflectionTexture) {
+	public void setReflectionTexture(Texture2D reflectionTexture) {
 		this.reflectionTexture = reflectionTexture;
 	}
 
-	public Texture getRefractionTexture() {
+	public Texture2D getRefractionTexture() {
 		return refractionTexture;
 	}
 
-	public void setRefractionTexture(Texture refractionTexture) {
+	public void setRefractionTexture(Texture2D refractionTexture) {
 		this.refractionTexture = refractionTexture;
 	}
 
@@ -489,11 +489,11 @@ public class Water extends GameObject{
 		this.tessellationShift = tessellationShift;
 	}
 
-	public Texture getDudv() {
+	public Texture2D getDudv() {
 		return dudv;
 	}
 
-	public void setDudv(Texture dudv) {
+	public void setDudv(Texture2D dudv) {
 		this.dudv = dudv;
 	}
 
@@ -527,5 +527,13 @@ public class Water extends GameObject{
 
 	public void setScenegraph(Scenegraph scenegraph) {
 		this.scenegraph = scenegraph;
+	}
+
+	public Texture2D getRefractionDepthTexture() {
+		return refractionDepthTexture;
+	}
+
+	public void setRefractionDepthTexture(Texture2D refractionDepthTexture) {
+		this.refractionDepthTexture = refractionDepthTexture;
 	}
 }

@@ -1,6 +1,6 @@
 package engine.scenegraph;
 
-import engine.core.Transform;
+import engine.scenegraph.components.Transform;
 
 public class Scenegraph extends Node{
 	
@@ -32,6 +32,7 @@ public class Scenegraph extends Node{
 	}
 	
 	public void update(){
+//		System.out.println(rootObject.getTransform().getScaling());
 		rootObject.update();
 		terrain.update();
 		water.update();

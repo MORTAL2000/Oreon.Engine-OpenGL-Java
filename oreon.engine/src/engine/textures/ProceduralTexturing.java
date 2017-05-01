@@ -8,8 +8,8 @@ import java.util.Random;
 
 import javax.imageio.ImageIO;
 
-import engine.geometrics.Mesh;
-import engine.geometrics.Vertex;
+import engine.geometry.Mesh;
+import engine.geometry.Vertex;
 import engine.math.Vec2f;
 
 public class ProceduralTexturing{
@@ -57,7 +57,7 @@ public class ProceduralTexturing{
 			}
 		}
 		
-		public static void mapCoordsToTextureFormat(Vertex[] vertices, Texture texture){
+		public static void mapCoordsToTextureFormat(Vertex[] vertices, Texture2D texture){
 			
 			float div = texture.getHeight()/texture.getWidth();
 			

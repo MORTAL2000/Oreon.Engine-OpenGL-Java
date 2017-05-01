@@ -6,20 +6,20 @@ import modules.gui.GUIElement;
 import modules.gui.GUIObjectLoader;
 import modules.gui.GUIVAO;
 import engine.configs.AlphaBlending;
-import engine.core.Transform;
-import engine.core.Util;
-import engine.main.CoreEngine;
-import engine.main.OpenGLDisplay;
+import engine.core.CoreEngine;
+import engine.core.Window;
 import engine.math.Matrix4f;
 import engine.math.Vec2f;
-import engine.shaders.gui.GuiShader;
-import engine.textures.Texture;
+import engine.scenegraph.components.Transform;
+import engine.shader.gui.GuiShader;
+import engine.textures.Texture2D;
+import engine.utils.Util;
 
 
 public class FPSPanel extends GUIElement{
 	
 	private Vec2f[] fps;
-	private Texture texture;
+	private Texture2D texture;
 	
 	@Override
 	public void init() {
@@ -27,7 +27,7 @@ public class FPSPanel extends GUIElement{
 	}
 	
 	public FPSPanel(){
-		texture = new Texture("./res/textures/gui/Fonts.png");
+		texture = new Texture2D("./res/gui/tex/Fonts.png");
 		texCoords = new Vec2f[24];
 		fps = new Vec2f[24];
 		setShader(GuiShader.getInstance());
@@ -37,7 +37,7 @@ public class FPSPanel extends GUIElement{
 		int size = 20;
 		setOrthoTransform(new Transform());
 		setOrthographicMatrix(new Matrix4f().Orthographic2D());
-		getOrthoTransform().setTranslation(5, OpenGLDisplay.getInstance().getLwjglWindow().getHeight()-size, 0);
+		getOrthoTransform().setTranslation(Window.getInstance().getWidth()-80, Window.getInstance().getHeight()-40, 0);
 		getOrthoTransform().setScaling(size, size, 0);
 		setOrthographicMatrix(getOrthographicMatrix().mul(getOrthoTransform().getWorldMatrix()));
 		Vec2f[] texCoords = new Vec2f[4];

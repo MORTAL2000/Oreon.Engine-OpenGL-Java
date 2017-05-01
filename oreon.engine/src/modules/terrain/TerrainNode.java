@@ -4,14 +4,15 @@ import static org.lwjgl.opengl.GL11.glViewport;
 
 import engine.buffers.PatchVAO;
 import engine.core.Camera;
-import engine.main.OpenGLDisplay;
-import engine.main.RenderingEngine;
+import engine.core.Window;
+import engine.core.RenderingEngine;
 import engine.math.Vec2f;
 import engine.math.Vec3f;
 import engine.scenegraph.GameObject;
 import engine.scenegraph.Node;
 import engine.scenegraph.components.RenderInfo;
 import engine.scenegraph.components.Renderer;
+import engine.utils.Constants;
 
 public class TerrainNode extends GameObject{
 	
@@ -34,11 +35,27 @@ public class TerrainNode extends GameObject{
 		this.gap = 1f/(TerrainQuadtree.getRootPatches() * (float)(Math.pow(2, lod)));
 		PatchVAO meshBuffer = new PatchVAO();
 		meshBuffer.addData(generatePatch(),16);
-		setRenderInfo(new RenderInfo(new engine.configs.Default(),terrConfig.getShader(),terrConfig.getShadowShader()));
-		Renderer renderer = new Renderer(terrConfig.getShader(), meshBuffer);
+		
+		setRenderInfo(new RenderInfo(new engine.configs.Default(),terrConfig.getShader()));
+
+		if (RenderingEngine.isGrid())
+			getRenderInfo().setShader(terrConfig.getGridShader());
+		else if (!RenderingEngine.isGrid())
+			getRenderInfo().setShader(terrConfig.getShader());
+		
+		Renderer renderer = new Renderer(getRenderInfo().getShader(), meshBuffer);
 		addComponent("Renderer", renderer);
 		
+		getTransform().setLocalScaling(terrConfig.getScaleXZ(), terrConfig.getScaleY(), terrConfig.getScaleXZ());
+		getTransform().getLocalTranslation().setX(-terrConfig.getScaleXZ()/2f);
+		getTransform().getLocalTranslation().setZ(-terrConfig.getScaleXZ()/2f);
+		getTransform().getLocalTranslation().setY(0);
+		
+		getTransform().setScaling(getTransform().getLocalScaling());
+		getTransform().setTranslation(getTransform().getLocalTranslation());
+		
 		computeWorldPos();
+		updateQuadtree();
 	}
 	
 	public void update()
@@ -47,15 +64,10 @@ public class TerrainNode extends GameObject{
 				getRenderInfo().setShader(terrConfig.getGridShader());
 			else if (!RenderingEngine.isGrid())
 				getRenderInfo().setShader(terrConfig.getShader());
-		
-			getTransform().setLocalScaling(terrConfig.getScaleXZ(), terrConfig.getScaleY(), terrConfig.getScaleXZ());
-			getTransform().getLocalTranslation().setX(-terrConfig.getScaleXZ()/2f);
-			getTransform().getLocalTranslation().setZ(-terrConfig.getScaleXZ()/2f);
 			
+			getComponents().get("Renderer").setShader(getRenderInfo().getShader());
+					
 			getTransform().setScaling(getTransform().getLocalScaling());
-			getTransform().setTranslation(getTransform().getLocalTranslation());
-			
-			updateQuadtree();
 			
 			for(Node child: getChildren())
 				child.update();		
@@ -78,11 +90,11 @@ public class TerrainNode extends GameObject{
 		if (getRenderInfo().isShadowCaster() && isleaf){
 			getComponents().get("Renderer").setShader(getRenderInfo().getShadowShader());
 			getRenderInfo().getConfig().enable();
-			glViewport(0,0,1024,1024);
+			glViewport(0,0,Constants.PSSM_SHADOWMAP_RESOLUTION,Constants.PSSM_SHADOWMAP_RESOLUTION);
 			
 			getComponents().get("Renderer").render();
 			
-			glViewport(0,0,OpenGLDisplay.getInstance().getLwjglWindow().getWidth(), OpenGLDisplay.getInstance().getLwjglWindow().getHeight());
+			glViewport(0,0,Window.getInstance().getWidth(), Window.getInstance().getHeight());
 			getRenderInfo().getConfig().disable();
 			getComponents().get("Renderer").setShader(getRenderInfo().getShader());
 		}
@@ -90,16 +102,23 @@ public class TerrainNode extends GameObject{
 			child.renderShadows();
 	}
 	
-public void updateQuadtree(){
-		
-		float distance;
+	public void updateQuadtree(){
 		
 		if (Camera.getInstance().getPosition().getY() > (terrConfig.getScaleY())){
 			worldPos.setY(terrConfig.getScaleY());
 		}
 		else worldPos.setY(Camera.getInstance().getPosition().getY());
 
-		distance = (Camera.getInstance().getPosition().sub(worldPos)).length();
+		updateChildNodes();
+		
+		for (Node node : getChildren()){
+			((TerrainNode) node).updateQuadtree();
+		}
+	}
+	
+	private void updateChildNodes(){
+		
+		float distance = (Camera.getInstance().getPosition().sub(worldPos)).length();
 		
 		switch (lod){
 		case 0: if (distance < terrConfig.getLod_range()[0]){
@@ -161,7 +180,7 @@ public void updateQuadtree(){
 		}
 	}
 	
-	public void add4ChildNodes(int lod){
+	private void add4ChildNodes(int lod){
 		
 		if (isleaf){
 			isleaf = false;
@@ -176,7 +195,7 @@ public void updateQuadtree(){
 		}	
 	}
 	
-	public void removeChildNodes(){
+	private void removeChildNodes(){
 		
 		if (!isleaf){
 			isleaf = true;
@@ -201,7 +220,8 @@ public void updateQuadtree(){
 	public void computeWorldPos(){
 		
 		Vec2f loc = location.add(gap/2f).mul(terrConfig.getScaleXZ()).sub(terrConfig.getScaleXZ()/2f);
-		this.worldPos = new Vec3f(loc.getX(),terrConfig.getScaleY(),loc.getY());
+		float height = Terrain.getInstance().getTerrainHeight(loc.getX(), loc.getY());
+		this.worldPos = new Vec3f(loc.getX(),height,loc.getY());
 	}
 	
 	public Vec2f[] generatePatch(){

@@ -13,9 +13,16 @@ import static org.lwjgl.opengl.GL11.glClearDepth;
 import static org.lwjgl.opengl.GL11.glCullFace;
 import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glFrontFace;
+import static org.lwjgl.opengl.GL13.GL_SAMPLE_ALPHA_TO_COVERAGE;
 import static org.lwjgl.opengl.GL20.GL_POINT_SPRITE;
 import static org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_SRGB;
 import static org.lwjgl.opengl.GL32.GL_PROGRAM_POINT_SIZE;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE0;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE1;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE2;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE3;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE4;
+import static org.lwjgl.opengl.GL30.GL_CLIP_DISTANCE5;
 
 public interface RenderConfig {
 
@@ -32,6 +39,13 @@ public interface RenderConfig {
 		glEnable(GL_TEXTURE_2D);
 		glEnable(GL_FRAMEBUFFER_SRGB);
 		glEnable(GL_PROGRAM_POINT_SIZE);
+		glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+		glEnable(GL_CLIP_DISTANCE0);
+		glEnable(GL_CLIP_DISTANCE1);
+		glEnable(GL_CLIP_DISTANCE2);
+		glEnable(GL_CLIP_DISTANCE3);
+		glEnable(GL_CLIP_DISTANCE4);
+		glEnable(GL_CLIP_DISTANCE5);
 	}
 	
 	public static void clearScreen()
@@ -43,13 +57,13 @@ public interface RenderConfig {
 	
 	public static void clearScreenDeepOceanRefraction()
 	{
-		glClearColor(0.02f,0.03f,0.055f,1.0f);
+		glClearColor(0.015f,0.022f,0.04f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 	
 	public static void clearScreenDeepOceanReflection()
 	{
-		glClearColor(0.3294f,0.4917f,0.7270f,1.0f);
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 }
